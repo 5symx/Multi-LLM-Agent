@@ -54,6 +54,7 @@ class ModelArguments:
     n_threads: int = field(default=2)
     n_batch: int = field(default=512)
     n_ctx: int = field(default=4096)
+    n_predict: int = field(default=512)
     planner_n_gpu_layers: int = field(default=-1)
     caller_n_gpu_layers: int = field(default=-1)
     summarizer_n_gpu_layers: int = field(default=-1)
@@ -206,24 +207,30 @@ def _build_prompt(prompt_type, tools, thought, history, role):
     return query + f" {role}: "
 
 
-def _load_llama(model_path: str, n_threads: int, n_batch: int, n_gpu_layers: int, n_ctx: int, role: str):
+def _load_llama(model_path: str, n_threads: int, n_batch: int, n_gpu_layers: int, n_ctx: int, n_predict: int, role: str):
     if not model_path:
         raise ValueError(f"--{role}_model_path is required for infer_pipeline_llama.py")
     # model_path = _normalize_path(model_path)
     # if not os.path.exists(model_path):
     #     raise FileNotFoundError(f"{role} model not found: {model_path}")
 
-    # model_name_or_path = "Wendy024/iic-alpha-umi-GGUF"
-    # final_model_path = hf_hub_download(repo_id=model_name_or_path, filename=model_path)
-
-
     rank0_print(f"Loading {role} model from {model_path}")
+
+    if "/data0/" in model_path or model_path.startswith("/data0"):
+        rank0_print("model_path is local")
+    else:
+        rank0_print("model_path is huggingface")
+        model_name_or_path = "Wendy024/iic-alpha-umi-GGUF"
+        model_path = hf_hub_download(repo_id=model_name_or_path, filename=model_path)
+        
+    
     return Llama(
         model_path=model_path,
         n_threads=n_threads,
         n_batch=n_batch,
         n_gpu_layers=n_gpu_layers,
         n_ctx=n_ctx,
+        n_predict=n_predict,
     )
 
 
@@ -277,6 +284,7 @@ def infer():
         model_args.n_batch,
         model_args.planner_n_gpu_layers,
         model_args.n_ctx,
+        model_args.n_predict,
         "planner",
     )
     caller_llm = _load_llama(
@@ -285,6 +293,7 @@ def infer():
         model_args.n_batch,
         model_args.caller_n_gpu_layers,
         model_args.n_ctx,
+        model_args.n_predict,
         "caller",
     )
     summarizer_llm = _load_llama(
@@ -293,6 +302,7 @@ def infer():
         model_args.n_batch,
         model_args.summarizer_n_gpu_layers,
         model_args.n_ctx,
+        model_args.n_predict,
         "summarizer",
     )
 

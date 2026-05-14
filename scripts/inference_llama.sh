@@ -24,8 +24,8 @@ PLAN_GPU="${PLAN_GPU:-0}"
 CAL_GPU="${CAL_GPU:-0}"
 SUM_GPU="${SUM_GPU:-1}"
 
-CTX_SIZE="${CTX_SIZE:-512}"
-N_GPU_LAYERS="${N_GPU_LAYERS:--1}"
+CTX_SIZE="${CTX_SIZE:-4096}"
+N_GPU_LAYERS="${N_GPU_LAYERS:-1}"
 N_THREADS="${N_THREADS:-2}"
 N_BATCH="${N_BATCH:-512}"
 
@@ -110,7 +110,7 @@ export PYTHONPATH=./
 for DOMAIN in in_domain
 do 
 
-    python inference_utils/toolbench/infer_pipeline_llama.py \
+    cmd=(python inference_utils/toolbench/infer_pipeline_llama.py \
         --planner_model_path "${MODELS_DIR}/${PLAN_MODEL}" \
         --caller_model_path "${MODELS_DIR}/${CAL_MODEL}" \
         --summarizer_model_path "${MODELS_DIR}/${SUM_MODEL}" \
@@ -125,8 +125,14 @@ do
         --caller_n_gpu_layers "${N_GPU_LAYERS}" \
         --summarizer_n_gpu_layers "${N_GPU_LAYERS}" \
         --max_input_length 3580 \
-        --num_infer_samples 100 \
-        --output_dir "${LAB_DIR}/${DOMAIN}"
+        --num_infer_samples 2 \
+        --output_dir "${LAB_DIR}/${DOMAIN}")
+    echo "Running command:"
+    printf ' %q' "${cmd[@]}"
+    echo
+
+    "${cmd[@]}"
+    
 
     python inference_utils/toolbench/evaluate-multi_agent.py \
         --input_path "${LAB_DIR}/${DOMAIN}/predictions.json" \
