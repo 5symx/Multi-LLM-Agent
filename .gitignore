@@ -1,2 +1,5 @@
 .DS_Store
 assets/.DS_Store
+GLPFT/utils/__pycache__/
+GLPFT/inference_utils/toolbench/__pycache__/
+GLPFT/output_res/
