@@ -38,5 +38,17 @@ bash scripts/inference_vllm.sh
 ```bash
 bash scripts/inference_llama_docker.sh  -TBTest
 
+# llama_cpp_python
+python inference_utils/toolbench/infer_pipeline_llama.py \
+  --planner_model_path /path/to/planner.gguf \
+  --caller_model_path /path/to/caller.gguf \
+  --summarizer_model_path /path/to/summarizer.gguf \
+  --data_path dataset/toolbench/test/in_domain.json \
+  --assistant_prompt_type toolbench_planner \
+  --caller_prompt_type toolbench_caller \
+  --conclusion_prompt_type toolbench_summarizer \
+  --max_input_length 3580 \
+  --num_infer_samples 100 \
+  --output_dir output_res/toolbench_llama_local/in_domain
 
 ```

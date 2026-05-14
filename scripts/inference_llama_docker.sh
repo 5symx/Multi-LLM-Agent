@@ -110,7 +110,7 @@ do
     EXTRA_API_ARG=()
     if [[ -n "${OPENAI_API_KEY:-}" ]]; then
         EXTRA_API_ARG=(--api_key "${OPENAI_API_KEY}")
-    fi
+    fi     
 
     python inference_utils/toolbench/infer_pipeline_vllm.py \
         --planner_model_name planner \
@@ -126,10 +126,11 @@ do
         --assistant_prompt_type "${P_TYPE_PLAN}" \
         --caller_prompt_type "${P_TYPE_CAL}" \
         --conclusion_prompt_type "${P_TYPE_SUM}" \
-        --max_input_length 3580 \
+         --max_input_length 3580 \
         --num_infer_samples 100 \
         --output_dir "${LAB_DIR}/${DOMAIN}" \
         "${EXTRA_API_ARG[@]}"
+
 
     python inference_utils/toolbench/evaluate-multi_agent.py \
         --input_path "${LAB_DIR}/${DOMAIN}/predictions.json" \
