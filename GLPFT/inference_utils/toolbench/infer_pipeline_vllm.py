@@ -258,10 +258,14 @@ def _post_openai_completion(
     max_retries: int,
     retry_sleep: float,
 ):
-    url = base_url.rstrip("/") + "/completions"
+    url = base_url.rstrip("/") + "/chat/completions"
+
+    rank0_print(f"\n[DEBUG] send to following url:  {url}")
     payload = {
         "model": model,
-        "prompt": prompt,
+        "messages": [
+            {"role": "user", "content": prompt}
+        ],
         "max_tokens": max_tokens,
         "temperature": temperature,
         "top_p": top_p,
@@ -272,6 +276,10 @@ def _post_openai_completion(
     last_error = None
     for attempt in range(max_retries):
         try:
+            print(f"[DEBUG] request Headers: {_openai_headers(api_key)}")
+            print(f"[DEBUG] request Payload: {json.dumps(payload, indent=2, ensure_ascii=False)}")
+            
+            print(f"[DEBUG] sending POST request (Attempt {attempt + 1}/{max_retries})...")
             response = requests.post(
                 url,
                 headers=_openai_headers(api_key),
@@ -283,7 +291,8 @@ def _post_openai_completion(
             choices = data.get("choices", [])
             if not choices:
                 raise RuntimeError(f"No choices returned from {url}: {data}")
-            return choices[0].get("text", "")
+            # return choices[0].get("text", "")
+            return choices[0].get("message", {}).get("content", "")
         except Exception as exc:
             last_error = exc
             if attempt + 1 < max_retries:
@@ -403,6 +412,8 @@ def infer():
     for i, text in enumerate(planner_outputs):
         candidate = _clean_completion(text)
         infer_samples[i]["predictions"] = candidate
+
+    rank0_print("finish planner")
 
     infer_samples_planner = []
     infer_samples_caller = []

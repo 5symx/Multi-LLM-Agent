@@ -25,10 +25,13 @@ from dataclasses import dataclass, field
 import copy
 import json
 import os
+import gc
 from typing import Optional
 
 from llama_cpp import Llama
+from huggingface_hub import hf_hub_download
 import transformers
+import torch
 
 from utils.prompt_lib import prompt_dict
 
@@ -46,6 +49,10 @@ class ModelArguments:
     planner_model_path: str = field(default="models--iic--alpha-umi-planner-7b-Q4_K_M.gguf")
     caller_model_path: str = field(default="models--iic--alpha-umi-caller-7b-Q4_K_M.gguf")
     summarizer_model_path: str = field(default="models--iic--alpha-umi-summarizer-7b-Q4_K_M.gguf")
+
+    planner_lora_path: str = field(default="models--iic--alpha-umi-planner-7b-Q4_K_M.gguf")
+    caller_lora_path: str = field(default="models--iic--alpha-umi-caller-7b-Q4_K_M.gguf")
+    summarizer_lora_path: str = field(default="models--iic--alpha-umi-summarizer-7b-Q4_K_M.gguf")
 
     max_tokens: int = field(default=512)
     temperature: float = field(default=0.0)
@@ -207,7 +214,7 @@ def _build_prompt(prompt_type, tools, thought, history, role):
     return query + f" {role}: "
 
 
-def _load_llama(model_path: str, n_threads: int, n_batch: int, n_gpu_layers: int, n_ctx: int, n_predict: int, role: str):
+def _load_llama(model_path: str, lora_path: str, n_threads: int, n_batch: int, n_gpu_layers: int, n_ctx: int, n_predict: int, role: str):
     if not model_path:
         raise ValueError(f"--{role}_model_path is required for infer_pipeline_llama.py")
     # model_path = _normalize_path(model_path)
@@ -226,6 +233,7 @@ def _load_llama(model_path: str, n_threads: int, n_batch: int, n_gpu_layers: int
     
     return Llama(
         model_path=model_path,
+        lora_path=lora_path,
         n_threads=n_threads,
         n_batch=n_batch,
         n_gpu_layers=n_gpu_layers,
@@ -259,6 +267,17 @@ def _llama_completion(llm: Llama, prompt: str, max_tokens: int, temperature: flo
     return choices[0].get("text", "")
 
 
+def _release_llama(llm: Optional[Llama], role: str) -> None:
+    if llm is None:
+        return
+    rank0_print(f"Releasing {role} model and clearing caches")
+    llm.close()
+    del llm
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+
 def infer():
     parser = transformers.HfArgumentParser(
         (ModelArguments, DataArguments, TrainingArguments)
@@ -278,8 +297,13 @@ def infer():
 
     infer_samples = build_infer_samples(data_args)
 
+    process_zero = local_rank == 0 or local_rank is None
+    if process_zero and not os.path.exists(training_args.output_dir):
+        os.makedirs(training_args.output_dir)
+
     planner_llm = _load_llama(
         model_args.planner_model_path,
+        model_args.planner_lora_path,
         model_args.n_threads,
         model_args.n_batch,
         model_args.planner_n_gpu_layers,
@@ -287,29 +311,6 @@ def infer():
         model_args.n_predict,
         "planner",
     )
-    caller_llm = _load_llama(
-        model_args.caller_model_path,
-        model_args.n_threads,
-        model_args.n_batch,
-        model_args.caller_n_gpu_layers,
-        model_args.n_ctx,
-        model_args.n_predict,
-        "caller",
-    )
-    summarizer_llm = _load_llama(
-        model_args.summarizer_model_path,
-        model_args.n_threads,
-        model_args.n_batch,
-        model_args.summarizer_n_gpu_layers,
-        model_args.n_ctx,
-        model_args.n_predict,
-        "summarizer",
-    )
-
-    process_zero = local_rank == 0 or local_rank is None
-    if process_zero and not os.path.exists(training_args.output_dir):
-        os.makedirs(training_args.output_dir)
-
     planner_outputs = []
     for sample in infer_samples:
         planner_prompt = _truncate_prompt(
@@ -323,6 +324,7 @@ def infer():
             model_args.top_p,
         )
         planner_outputs.append(text)
+    _release_llama(planner_llm, "planner")
 
     for i, text in enumerate(planner_outputs):
         candidate = _clean_completion(text)
@@ -369,6 +371,16 @@ def infer():
             infer_samples_caller.append(sample)
 
     if len(infer_samples_caller) != 0:
+        caller_llm = _load_llama(
+            model_args.caller_model_path,
+            model_args.caller_lora_path,
+            model_args.n_threads,
+            model_args.n_batch,
+            model_args.caller_n_gpu_layers,
+            model_args.n_ctx,
+            model_args.n_predict,
+            "caller",
+        )
         caller_outputs = []
         for sample in infer_samples_caller:
             caller_prompt = _truncate_prompt(
@@ -382,6 +394,7 @@ def infer():
                 model_args.top_p,
             )
             caller_outputs.append(text)
+        _release_llama(caller_llm, "caller")
 
         for i, text in enumerate(caller_outputs):
             candidate = _clean_completion(text)
@@ -393,6 +406,16 @@ def infer():
             )
 
     if len(infer_samples_summarizer) != 0:
+        summarizer_llm = _load_llama(
+            model_args.summarizer_model_path,
+            model_args.summarizer_lora_path,
+            model_args.n_threads,
+            model_args.n_batch,
+            model_args.summarizer_n_gpu_layers,
+            model_args.n_ctx,
+            model_args.n_predict,
+            "summarizer",
+        )
         summarizer_outputs = []
         for sample in infer_samples_summarizer:
             summarizer_prompt = _truncate_prompt(
@@ -406,6 +429,7 @@ def infer():
                 model_args.top_p,
             )
             summarizer_outputs.append(text)
+        _release_llama(summarizer_llm, "summarizer")
 
         for i, text in enumerate(summarizer_outputs):
             candidate = _clean_completion(text)

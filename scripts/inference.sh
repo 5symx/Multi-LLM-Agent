@@ -1,5 +1,8 @@
 BASE_DIR="/home/Multi-llm-agent"
 cd "$BASE_DIR/GLPFT"
+# SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# GLPFT_DIR="$(cd "${SCRIPT_DIR}/../GLPFT" && pwd)"
+# cd "${GLPFT_DIR}"
 
 NNODE=2
 PORT=12345
@@ -9,12 +12,12 @@ CAL_PATH="/root/ymx/.cache/huggingface/hub/models--iic--alpha-umi-caller-7b"
 SUM_PATH="/root/ymx/.cache/huggingface/hub/models--iic--alpha-umi-summarizer-7b"
 
 
-LAB_DIR=output_res/toolbench
+LAB_DIR=output_res/toolbench_test
 P_TYPE_PLAN=toolbench_planner
 P_TYPE_CAL=toolbench_caller
 P_TYPE_SUM=toolbench_summarizer
 
-
+export CUDA_VISIBLE_DEVICES=0
 # for DOMAIN in 'in_domain' 'out_of_domain'
 for DOMAIN in 'in_domain' 
 do

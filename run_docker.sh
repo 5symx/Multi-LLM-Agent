@@ -30,7 +30,7 @@ elif [[ ${DOCKER_IMAGE} == *"multi"* ]]; then
     DOCKER_FLAGS="${DOCKER_FLAGS} --runtime=nvidia \
     -e CUDA_MPS_PIPE_DIRECTORY=/home \
     -e CUDA_MPS_LOG_DIRECTORY=/home \
-    -e NVIDIA_VISIBLE_DEVICES=0,1 \
+    -e NVIDIA_VISIBLE_DEVICES=1 \
     -e TMPDIR=/home/my_tmp \
     "
 fi

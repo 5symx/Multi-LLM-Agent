@@ -33,6 +33,7 @@ docker rm -f $(docker ps -a -q --filter "ancestor=vllm/vllm-openai:latest")
 ./run_docker.sh multi-llm-agent:cu118
 
 bash scripts/inference_vllm.sh
+# vllm_100
 ```
 ## llama.cpp compatitive
 ```bash
@@ -52,3 +53,24 @@ python inference_utils/toolbench/infer_pipeline_llama.py \
   --output_dir output_res/toolbench_llama_local/in_domain
 
 ```
+
+## llama cpp python (lora)
+```bash
+bash scripts/inference_llama.sh
+# llama_100 vs 
+# llama_lora_100 
+```
+## opanai - api
+change to chat/completion
+```bash
+bash scripts/inference_llama.sh
+# gpt_100
+```
+
+# evaluation
+explain
+plan_em: plan match
+action_em: action name match (for call cases)
+easy_f1/hard_f1/f1: action input JSON similarity
+rouge: final answer similarity (finish cases)
+hallu_rate: predicted action not in tool list
