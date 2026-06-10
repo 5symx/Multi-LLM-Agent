@@ -58,7 +58,8 @@ python inference_utils/toolbench/infer_pipeline_llama.py \
 ```bash
 bash scripts/inference_llama.sh
 # llama_100 vs 
-# llama_lora_100 
+# llama_lora_backbone_100 
+similarity is limited
 ```
 ## opanai - api
 change to chat/completion
